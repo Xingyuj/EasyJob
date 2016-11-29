@@ -2,9 +2,16 @@ package easyjob;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.regex.Pattern;
 
+import org.apache.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.DataNode;
 import org.jsoup.nodes.Document;
@@ -17,19 +24,21 @@ public class SeekJobs {
 	private int pageScope = 1;
 	private List<Job> matches;
 	private String location;
-	private List<String> jobTitles;
+	private String jobTitle;
 	private String[] exclusiveCriteria = new String[] { "mid", "senior",
 			"support", "analyst" };
 	private boolean exclusive;
 	private CoverletterProcessor clProcessor;
 	private String currentWeb;
 	private String outputPath = "/Users/xingyuji/easyjob/progress/";
-	
+	private static Logger logger = Logger.getLogger(SeekJobs.class);
+	private HashMap<String, List<String>> record;
+
 	public SeekJobs() {
 		this.matches = new ArrayList<Job>();
 		this.clProcessor = new CoverletterProcessor();
 	}
-	
+
 	public SeekJobs(int pageScope, String[] exclusiveCriteria) {
 		this.matches = new ArrayList<Job>();
 		this.pageScope = pageScope;
@@ -37,59 +46,57 @@ public class SeekJobs {
 		this.clProcessor = new CoverletterProcessor();
 	}
 
-	public void onSeek() throws IOException {
+	public void onSeek() throws Exception {
 		currentWeb = "SEEK";
-		String location = "in-All-Melbourne-VIC";
+		logger.info("Start seeking jobs on SEEK for [" + jobTitle + "] at ["
+				+ location + "] within " + pageScope + " page(s)...");
 		// TODO: add more location
 		if ("melbourne".equalsIgnoreCase(location)) {
 			location = "in-All-Melbourne-VIC";
 		}
-		for (String jobTitle : jobTitles) {
-			for (int i = 0; i < pageScope; i++) {
-				String url = "https://www.seek.com.au/jobs/" + location
-						+ "?keywords=" + jobTitle + "&page=" + i;
-				Document document = Jsoup.connect(url).timeout(6000).get();
+		for (int i = 0; i < pageScope; i++) {
+			String url = "https://www.seek.com.au/jobs/" + location
+					+ "?keywords=" + jobTitle + "&page=" + i;
+			Document document = Jsoup.connect(url).timeout(6000).get();
 
-				Elements elements = document.select("article");
-				for (Element element : elements) {
-					Elements articleContent = element.select("script");
-					for (DataNode node : articleContent.get(0).dataNodes()) {
-						Gson gson = new Gson();
-						Job job = gson.fromJson(node.toString(), Job.class);
+			Elements elements = document.select("article");
+			for (Element element : elements) {
+				Elements articleContent = element.select("script");
+				for (DataNode node : articleContent.get(0).dataNodes()) {
+					Gson gson = new Gson();
+					Job job = gson.fromJson(node.toString(), Job.class);
 
-						if (determineMatch(job.getTitle(),
-								job.getDescription(), jobTitle)) {
-							matches.add(job);
-						}
+					if (determineMatch(job.getTitle(), job.getDescription(),
+							jobTitle)) {
+						matches.add(job);
 					}
 				}
 			}
 		}
+		processEachMatchedJob();
 	}
-	
+
 	public void onLinkedIn() throws IOException {
 		String location = "in-All-Melbourne-VIC";
 		// TODO: add more location
 		if ("melbourne".equalsIgnoreCase(location)) {
 			location = "in-All-Melbourne-VIC";
 		}
-		for (String jobTitle : jobTitles) {
-			for (int i = 0; i < pageScope; i++) {
-				String url = "https://www.seek.com.au/jobs/" + location
-						+ "?keywords=" + jobTitle + "&page=" + i;
-				Document document = Jsoup.connect(url).timeout(6000).get();
+		for (int i = 0; i < pageScope; i++) {
+			String url = "https://www.seek.com.au/jobs/" + location
+					+ "?keywords=" + jobTitle + "&page=" + i;
+			Document document = Jsoup.connect(url).timeout(6000).get();
 
-				Elements elements = document.select("article");
-				for (Element element : elements) {
-					Elements articleContent = element.select("script");
-					for (DataNode node : articleContent.get(0).dataNodes()) {
-						Gson gson = new Gson();
-						Job job = gson.fromJson(node.toString(), Job.class);
+			Elements elements = document.select("article");
+			for (Element element : elements) {
+				Elements articleContent = element.select("script");
+				for (DataNode node : articleContent.get(0).dataNodes()) {
+					Gson gson = new Gson();
+					Job job = gson.fromJson(node.toString(), Job.class);
 
-						if (determineMatch(job.getTitle(),
-								job.getDescription(), jobTitle)) {
-							matches.add(job);
-						}
+					if (determineMatch(job.getTitle(), job.getDescription(),
+							jobTitle)) {
+						matches.add(job);
 					}
 				}
 			}
@@ -97,27 +104,56 @@ public class SeekJobs {
 	}
 
 	public void processEachMatchedJob() throws Exception {
+		logger.info("processing matched jobs...");
+
 		for (Job job : matches) {
 			List<String> requiredSkills = new ArrayList<String>();
-			Document document = Jsoup.connect(job.getUrl()).timeout(60000).get();
-			Elements elements = document.select("div.templatetext");
+			Document document = Jsoup.connect(job.getUrl()).timeout(60000)
+					.get();
+			Elements elements = document.select("*.templatetext");
 			for (Element element : elements) {
 				Elements skills = element.select("li");
-				for (Element skill : skills) {
-//					System.out.println(skill.text()+"&*&*&*&*&*&*&*");
-					requiredSkills.add(skill.text());
+				if (skills.size() == 0) {
+					// TODO: bug fix some should be matched may not be.
+					String[] text = element.text().split("[•.,:]");
+					for (int i = 0; i < text.length; i++) {
+						requiredSkills.add(text[i]);
+					}
+				} else {
+					for (Element skill : skills) {
+						requiredSkills.add(skill.text());
+					}
 				}
 			}
 			String companyName = job.getHiringOrganization().getName();
-			clProcessor.setCompanyAddress(job.getJobLocation().getAddress().getAddressRegion());
+			String jobTitle = job.getTitle();
+			String url = job.getUrl();
+			clProcessor.setCompanyAddress(job.getJobLocation().getAddress()
+					.getAddressRegion());
 			clProcessor.setCompanyName(job.getHiringOrganization().getName());
-			clProcessor.setJobTitle(job.getTitle());
-			clProcessor.setPosition(job.getTitle());
-//					clProcessor.setRecruiterName("");
+			clProcessor.setJobTitle(jobTitle);
+			clProcessor.setJobURL(url);
+			clProcessor.setPosition(jobTitle);
+//			clProcessor.setRequiredType("java");
+			// clProcessor.setRecruiterName("");
 			clProcessor.setWebName(currentWeb);
 			clProcessor.setRequiredSkills(requiredSkills);
-			new File(outputPath+companyName).mkdir();
-			clProcessor.writeCoverletter(outputPath+companyName+"/Xingyu-CL.docx");
+			String positionAsPath = "/"
+					+ jobTitle.replaceAll("[^a-zA-Z0-9.-]", "");
+			String path = outputPath + companyName + positionAsPath;
+			// Make dir
+			new File(path).mkdirs();
+			clProcessor.writeCoverletter(path + "/Xingyu-CL.docx");
+			// leave job track info
+			PrintWriter writer = new PrintWriter(path + "/info.txt", "UTF-8");
+			DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+			Date date = new Date();
+			writer.printf(
+					"Company: %s \n Position: %s \n URL: %s \n generated time: %s",
+					companyName, jobTitle, url, dateFormat.format(date));
+			writer.close();
+			logger.info("preparing to apply position: [" + jobTitle
+					+ "] of company [" + companyName + "]");
 		}
 
 	}
@@ -135,7 +171,8 @@ public class SeekJobs {
 
 		if (exclusive) {
 			for (int j = 0; j < exclusiveCriteria.length; j++) {
-				if (title.toLowerCase().contains(exclusiveCriteria[j])
+				if (Pattern.matches(".*\\b" + exclusiveCriteria[j] + "\\b.*",
+						title.toLowerCase())
 						|| description.contains(exclusiveCriteria[j])) {
 					return false;
 				}
@@ -176,22 +213,75 @@ public class SeekJobs {
 		this.location = location;
 	}
 
-	public List<String> getJobTitles() {
-		return jobTitles;
+	public String getJobTitle() {
+		return jobTitle;
 	}
 
-	public void setJobTitles(List<String> jobTitles) {
-		this.jobTitles = jobTitles;
+	public void setJobTitle(String jobTitle) {
+		this.jobTitle = jobTitle;
+	}
+
+	public boolean isExclusive() {
+		return exclusive;
+	}
+
+	public void setExclusive(boolean exclusive) {
+		this.exclusive = exclusive;
+	}
+
+	public String getOutputPath() {
+		return outputPath;
+	}
+
+	public void setOutputPath(String outputPath) {
+		this.outputPath = outputPath;
+	}
+
+	public HashMap<String, List<String>> getRecord() {
+		return record;
+	}
+
+	public void setRecord(HashMap<String, List<String>> record) {
+		this.record = record;
 	}
 
 	public static void main(String[] args) throws Exception {
-		SeekJobs seekJobs = new SeekJobs();
-		ArrayList<String> titles = new ArrayList<String>();
-		titles.add("graduate software");
-		seekJobs.setJobTitles(titles);
-		seekJobs.onSeek();
-		seekJobs.processEachMatchedJob();
-//		Document document = Jsoup.connect("https://www.seek.com.au/job/32345698").timeout(6000).get();
+		String[] searchJobTitles = { "graduate software", "graduate java",
+				"graduate ruby", "graduate web developer", "web developer" };
+		String[] searchJobLocations = { "melbourne" };
+		String[] searchJobOnWeb = { "seek", "linkedin", "indeed",
+				"careeronline" };
+		for (int i = 0; i < searchJobLocations.length; i++) {
+			for (int j = 0; j < searchJobTitles.length; j++) {
+				for (int k = 0; k < searchJobOnWeb.length; k++) {
+					SeekJobs seekJobs = new SeekJobs();
+					seekJobs.setPageScope(1); // how many pages of result to be
+												// processed.
+					seekJobs.setExclusive(true); // exclude jobs contain
+													// specific key words.
+					seekJobs.setLocation(searchJobLocations[i]);
+					seekJobs.setJobTitle(searchJobTitles[j]);
+					switch (searchJobOnWeb[k]) {
+					case "seek":
+						seekJobs.onSeek();
+						break;
+					case "linkedin":
+						// seekJobs.onLinkedIn();
+						break;
+					case "indeed":
 
+						break;
+					case "careeronline":
+
+						break;
+
+					default:
+						logger.error("no such web!");
+						System.exit(1);
+						break;
+					}
+				}
+			}
+		}
 	}
 }
