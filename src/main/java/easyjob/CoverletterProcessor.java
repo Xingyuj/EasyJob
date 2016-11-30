@@ -15,12 +15,7 @@ import java.util.Map.Entry;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.xssf.usermodel.XSSFSheet;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xwpf.converter.pdf.PdfConverter;
-import org.apache.poi.xwpf.converter.pdf.PdfOptions;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFNumbering;
@@ -41,11 +36,17 @@ public class CoverletterProcessor {
 	private String position = "<position name>";
 	private String fontFamily = "Times New Roman";
 	private String requiredType = "";
+	private MSExcelManager excelManager;
 	private int size = 14;
 	private int personalInfoSize = 12;
 	private int companyInfoSize = 12;
 	private List<String> requiredSkills = new ArrayList<String>();
 	private static Logger logger = Logger.getLogger(CoverletterProcessor.class);
+
+	public CoverletterProcessor() {
+		this.excelManager = new MSExcelManager();
+		// TODO Auto-generated constructor stub
+	}
 
 	public void writeCoverletter(String filename) throws Exception {
 		logger.info("generating cover letter for company [" + companyName
@@ -103,7 +104,7 @@ public class CoverletterProcessor {
 	private void processBodySkills(XWPFDocument document, BigInteger numId)
 			throws IOException {
 
-		HashMap<String, String> results = retrieveResources();
+		HashMap<String, String> results = retrieveSkillsToBeWritten();
 		Iterator<Entry<String, String>> it = results.entrySet().iterator();
 		while (it.hasNext()) {
 			XWPFParagraph skillParagraph = document.createParagraph();
@@ -202,89 +203,28 @@ public class CoverletterProcessor {
 	 * @return
 	 * @throws IOException
 	 */
-	public HashMap<String, String> retrieveResources() throws IOException {
-		File myFile = new File(
-				"/Users/xingyuji/easyjob/coverletterresources.xlsx");
+	public HashMap<String, String> retrieveSkillsToBeWritten() throws IOException {
 		HashMap<String, String> results = new HashMap<String, String>();
 		HashMap<String, String> bakupResults = new HashMap<String, String>();
-		FileInputStream fis = new FileInputStream(myFile);
-		// Finds the workbook instance for XLSX file
-		XSSFWorkbook myWorkBook = new XSSFWorkbook(fis);
-		// Return first sheet from the XLSX workbook
-		XSSFSheet mySheet = myWorkBook.getSheetAt(0);
-		// Get iterator to all the rows in current sheet
-		Iterator<Row> rowIterator = mySheet.iterator();
-		// Traversing over each row of XLSX file
-		while (rowIterator.hasNext()) {
-			Row row = rowIterator.next();
-			// For each row, iterate through each columns
-			Iterator<Cell> cellIterator = row.cellIterator();
-			Cell cell = null;
-			if (cellIterator.hasNext()) {
-				cell = cellIterator.next();
-			} else {
-				continue;
-			}
-			String resourceType = cell.getStringCellValue();
-			// requiredType: java ruby all
-			if ("".equals(requiredType)
-					|| requiredType.equalsIgnoreCase(resourceType)
-					|| "all".equalsIgnoreCase(resourceType)) {
 
-				if (cellIterator.hasNext()) {
-					// skill key words
-					cell = cellIterator.next();
-				} else {
-					continue;
-				}
-				// TODO: fuzzy matching
-				String[] keywords = cell.getStringCellValue().split(",");
-				for (String skill : requiredSkills) {
-					for (int i = 0; i < keywords.length; i++) {
-						// if (skill.contains(keywords[i])) {
-						if (Pattern.matches(".*\\b" + keywords[i] + "\\b.*",
-								skill.toLowerCase())) {
-							// cell = cellIterator.next();
-							if (cellIterator.hasNext()) {
-								cell = cellIterator.next();
-							} else {
-								continue;
-							}
-							String stressedWords = cell.getStringCellValue();
-							// cell = cellIterator.next();
-							if (cellIterator.hasNext()) {
-								cell = cellIterator.next();
-							} else {
-								continue;
-							}
-							// logger.error("")
-							String content = cell.getStringCellValue();
-							results.put(stressedWords, content);
-							break;
-						} else if (bakupResults.size() < 4) {
-							// does not match, but store it up to 4 skills to
-							// fill out cover letter if there is less than 2
-							// matched skills
-							if (cellIterator.hasNext()) {
-								cell = cellIterator.next();
-							} else {
-								continue;
-							}
-							String stressedWords = cell.getStringCellValue();
-							// cell = cellIterator.next();
-							if (cellIterator.hasNext()) {
-								cell = cellIterator.next();
-							} else {
-								continue;
-							}
-							// logger.error("")
-							String content = cell.getStringCellValue();
-							bakupResults.put(stressedWords, content);
-							break;
-						}
+		// modify this to extract non-default excel file -> excelManager.setFilename("");
+		List<List<String>> skillsYouGot = excelManager.extractXLSX();
+		for (List<String> _got : skillsYouGot) {
+			String[] keywords = _got.get(0).split(",");
+			for (String _demand : requiredSkills) {
+				for (int i = 0; i < keywords.length; i++) {
+					if (Pattern.matches(".*\\b" + keywords[i] + "\\b.*",
+							_demand.toLowerCase())) {
+						results.put(_got.get(1), _got.get(2));
+						break;
+					} else if (bakupResults.size() < 4) {
+						// does not match, but store it up to 4 skills to
+						// fill out cover letter if there is less than 2
+						// matched skills
+						bakupResults.put(_got.get(1), _got.get(2));
+						break;
 					}
 				}
-
 			}
 		}
 		if (results.size() == 0) {
@@ -293,7 +233,7 @@ public class CoverletterProcessor {
 					+ "] do check manually, or are you just a dead dog?!");
 			results = bakupResults;
 		} else if (results.size() <= 2) {
-			logger.info("your skills match position: [" + jobTitle
+			logger.warn("your skills match position: [" + jobTitle
 					+ "] at company: [" + companyName + "], URL: [" + jobURL
 					+ "] less than 2, automaticaly added another two");
 			results.putAll(bakupResults);
