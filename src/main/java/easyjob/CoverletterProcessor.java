@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,6 +19,8 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xwpf.converter.pdf.PdfConverter;
+import org.apache.poi.xwpf.converter.pdf.PdfOptions;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFNumbering;
@@ -48,7 +51,8 @@ public class CoverletterProcessor {
 		logger.info("generating cover letter for company [" + companyName
 				+ "] ...");
 
-		XWPFDocument document = new XWPFDocument();
+		XWPFDocument document = new XWPFDocument(new FileInputStream(
+				"/Users/xingyuji/easyjob/template.docx"));
 		XWPFNumbering numbering = document.createNumbering();
 		// BigInteger abstractNumId = numbering.addAbstractNum(null);
 		BigInteger numId = numbering.addNum(BigInteger.ZERO);
@@ -62,6 +66,7 @@ public class CoverletterProcessor {
 
 		XWPFParagraph inscribe = document.createParagraph();
 		inscribe.setAlignment(ParagraphAlignment.LEFT);
+		// inscribe.setStyle("Normal");
 		XWPFRun _inscribe = inscribe.createRun();
 		_inscribe.setText("Yours sincerely");
 		_inscribe.addBreak();
@@ -69,9 +74,16 @@ public class CoverletterProcessor {
 		_inscribe.setFontFamily(fontFamily);
 		_inscribe.setFontSize(size);
 
-		FileOutputStream fos = new FileOutputStream(new File(filename));
+		FileOutputStream fos = new FileOutputStream(
+				new File(filename + ".docx"));
 		document.write(fos);
 		fos.close();
+
+		XWPFDocument reloadDocx = new XWPFDocument(new FileInputStream(filename
+				+ ".docx"));
+		OutputStream out = new FileOutputStream(new File(filename + ".pdf"));
+		PdfConverter.getInstance().convert(reloadDocx, out, null);
+
 		logger.info("Company [" + companyName + "]'s cover letter generated");
 	}
 
@@ -80,7 +92,9 @@ public class CoverletterProcessor {
 		conclusion.setAlignment(ParagraphAlignment.BOTH);
 		XWPFRun body = conclusion.createRun();
 		// TODO: add name of the recruiter
+		body.addCarriageReturn();
 		body.setText("I look forward to hearing from you and would appreciate that you could provide me with an interview to discuss my application further. I have also attached my resume with this cover letter for your consideration. Thank you very much in advance for your time.");
+		body.addCarriageReturn();
 		body.addCarriageReturn();
 		body.setFontFamily(fontFamily);
 		body.setFontSize(size);
@@ -275,13 +289,13 @@ public class CoverletterProcessor {
 		}
 		if (results.size() == 0) {
 			logger.error("no skills match position: [" + jobTitle
-					+ "] at company: [" + companyName
-					+ "], URL: ["+jobURL+"] do check manually, or are you just a dead dog?!");
+					+ "] at company: [" + companyName + "], URL: [" + jobURL
+					+ "] do check manually, or are you just a dead dog?!");
 			results = bakupResults;
-		} else if (results.size() <= 2){
+		} else if (results.size() <= 2) {
 			logger.info("your skills match position: [" + jobTitle
-					+ "] at company: [" + companyName
-					+ "], URL: ["+jobURL+"] less than 2, automaticaly added another two");
+					+ "] at company: [" + companyName + "], URL: [" + jobURL
+					+ "] less than 2, automaticaly added another two");
 			results.putAll(bakupResults);
 		}
 		return results;

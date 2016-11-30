@@ -77,32 +77,8 @@ public class SeekJobs {
 	}
 
 	public void onLinkedIn() throws IOException {
-		String location = "in-All-Melbourne-VIC";
-		// TODO: add more location
-		if ("melbourne".equalsIgnoreCase(location)) {
-			location = "in-All-Melbourne-VIC";
-		}
-		for (int i = 0; i < pageScope; i++) {
-			String url = "https://www.seek.com.au/jobs/" + location
-					+ "?keywords=" + jobTitle + "&page=" + i;
-			Document document = Jsoup.connect(url).timeout(6000).get();
-
-			Elements elements = document.select("article");
-			for (Element element : elements) {
-				Elements articleContent = element.select("script");
-				for (DataNode node : articleContent.get(0).dataNodes()) {
-					Gson gson = new Gson();
-					Job job = gson.fromJson(node.toString(), Job.class);
-
-					if (determineMatch(job.getTitle(), job.getDescription(),
-							jobTitle)) {
-						matches.add(job);
-					}
-				}
-			}
-		}
 	}
-
+	
 	public void processEachMatchedJob() throws Exception {
 		logger.info("processing matched jobs...");
 
@@ -134,18 +110,20 @@ public class SeekJobs {
 			clProcessor.setJobTitle(jobTitle);
 			clProcessor.setJobURL(url);
 			clProcessor.setPosition(jobTitle);
-//			clProcessor.setRequiredType("java");
+			// clProcessor.setRequiredType("java");
 			// clProcessor.setRecruiterName("");
 			clProcessor.setWebName(currentWeb);
 			clProcessor.setRequiredSkills(requiredSkills);
-			String positionAsPath = "/"
-					+ jobTitle.replaceAll("[^a-zA-Z0-9.-]", "");
-			String path = outputPath + companyName + positionAsPath;
+			String positionAsPath = jobTitle.replaceAll("[^a-zA-Z0-9.-]", "")
+					.concat("/");
+			String companyAsPath = companyName.replaceAll("[^a-zA-Z0-9.-]", "")
+					.concat("/");
+			String path = outputPath + companyAsPath + positionAsPath;
 			// Make dir
 			new File(path).mkdirs();
-			clProcessor.writeCoverletter(path + "/Xingyu-CL.docx");
+			clProcessor.writeCoverletter(path + "Xingyu-CL");
 			// leave job track info
-			PrintWriter writer = new PrintWriter(path + "/info.txt", "UTF-8");
+			PrintWriter writer = new PrintWriter(path + "info.txt", "UTF-8");
 			DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 			Date date = new Date();
 			writer.printf(
@@ -246,19 +224,24 @@ public class SeekJobs {
 	}
 
 	public static void main(String[] args) throws Exception {
-		String[] searchJobTitles = { "graduate software", "graduate java",
-				"graduate ruby", "graduate web developer", "web developer" };
+		// String[] searchJobTitles = { "graduate software", "graduate java",
+		// "graduate ruby", "graduate web developer", "web developer" };
+		String[] searchJobTitles = { "graduate software" };
 		String[] searchJobLocations = { "melbourne" };
 		String[] searchJobOnWeb = { "seek", "linkedin", "indeed",
 				"careeronline" };
+		// how many pages of result to be processed.
+		int pageScope = 1;
+		// exclude jobs contain specific key words.
+		boolean exclusive = true;
+		
+		
 		for (int i = 0; i < searchJobLocations.length; i++) {
 			for (int j = 0; j < searchJobTitles.length; j++) {
 				for (int k = 0; k < searchJobOnWeb.length; k++) {
 					SeekJobs seekJobs = new SeekJobs();
-					seekJobs.setPageScope(1); // how many pages of result to be
-												// processed.
-					seekJobs.setExclusive(true); // exclude jobs contain
-													// specific key words.
+					seekJobs.setPageScope(pageScope);
+					seekJobs.setExclusive(exclusive); 
 					seekJobs.setLocation(searchJobLocations[i]);
 					seekJobs.setJobTitle(searchJobTitles[j]);
 					switch (searchJobOnWeb[k]) {
