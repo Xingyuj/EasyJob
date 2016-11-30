@@ -23,7 +23,7 @@ public class RecordsManager {
 	public void saveRecord(Records record){
 		Transaction tx = getSession().beginTransaction();
 		getSession().save(record);
-		tx.commit();  
+		tx.commit();
 	}
 	public void updateRecord(Records record){
 		Transaction tx = getSession().beginTransaction();
@@ -51,7 +51,7 @@ public class RecordsManager {
 		HibernateUtil.closeSessionFactory();
 	}
 	
-	public boolean jobAlreadyApplied(String compName, String position){
+	public boolean jobAlreadyRecord(String compName, String position){
 		String hql = "FROM Records WHERE companyName = :NAME and position = :POSITION";
 		@SuppressWarnings("unchecked")
 		Query<Records> query = getSession().createQuery(hql); 

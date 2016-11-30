@@ -1,12 +1,12 @@
 <?xml version="1.0"?>
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
 "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
-<!-- Generated 30/11/2016 5:54:21 PM by Hibernate Tools 4.0.0 -->
+<!-- Generated 30/11/2016 10:25:01 PM by Hibernate Tools 4.0.0 -->
 <hibernate-mapping>
     <class name="easyjob.pojo.Records" table="records" schema="public">
         <id name="id" type="int">
             <column name="id" />
-            <generator class="assigned" />
+            <generator class="increment" />
         </id>
         <property name="companyName" type="string">
             <column name="company_name" />
@@ -28,6 +28,15 @@
         </property>
         <property name="requireManualProcess" type="java.lang.Boolean">
             <column name="require_manual_process" />
+        </property>
+        <property name="status" type="java.lang.Integer">
+            <column name="status" />
+        </property>
+        <property name="applyEmail" type="string">
+            <column name="apply_email" />
+        </property>
+        <property name="url" type="string">
+            <column name="url" />
         </property>
     </class>
 </hibernate-mapping>
