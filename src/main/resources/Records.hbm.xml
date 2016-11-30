@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<!-- Generated 30/11/2016 5:54:21 PM by Hibernate Tools 4.0.0 -->
+<hibernate-mapping>
+    <class name="easyjob.pojo.Records" table="records" schema="public">
+        <id name="id" type="int">
+            <column name="id" />
+            <generator class="assigned" />
+        </id>
+        <property name="companyName" type="string">
+            <column name="company_name" />
+        </property>
+        <property name="position" type="string">
+            <column name="position" />
+        </property>
+        <property name="description" type="string">
+            <column name="description" />
+        </property>
+        <property name="releaseDate" type="timestamp">
+            <column name="release_date" length="29" />
+        </property>
+        <property name="appliedMethod" type="string">
+            <column name="applied_method" />
+        </property>
+        <property name="appliedDate" type="timestamp">
+            <column name="applied_date" length="29" />
+        </property>
+        <property name="requireManualProcess" type="java.lang.Boolean">
+            <column name="require_manual_process" />
+        </property>
+    </class>
+</hibernate-mapping>
